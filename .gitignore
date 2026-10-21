@@ -40,6 +40,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+bbo_session.json
 
 # Sync conflict files (Syncthing etc.)
 *.sync-conflict-*

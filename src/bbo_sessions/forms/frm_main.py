@@ -2,12 +2,17 @@
 
 """AppFrame for BBO Sessions."""
 
+import os
 import tkinter as tk
+from datetime import datetime, timedelta
+from time import sleep
 from tkinter import ttk
 
+from dotenv import load_dotenv
 from psiutils.constants import PAD
 from psiutils.utilities import window_resize
 
+from bbo_sessions.bbo_session import BboSession
 from bbo_sessions.buttons import ButtonFrame, IconButton
 from bbo_sessions.config import config
 from bbo_sessions.constants import APP_TITLE
@@ -16,6 +21,13 @@ from bbo_sessions.state import state
 from bbo_sessions.text import Text
 
 txt = Text()
+DATES = [
+    datetime(2026, 10, 21, 19, 19),
+    datetime(2026, 10, 22, 19, 20),
+    datetime(2026, 10, 26, 20, 20),
+    datetime(2026, 10, 28, 20, 20),
+    datetime(2026, 10, 29, 20, 20),
+]
 
 
 class AppFrame:
@@ -24,6 +36,18 @@ class AppFrame:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
 
+        load_dotenv()
+        self.session: BboSession | None = BboSession()
+        self.session.login(
+            os.environ["BBO_USERNAME"], os.environ["BBO_PASSWORD"]
+        )
+        self.existing_sessions = self.session.get_pending_sessions()
+
+        # self.existing_sessions = DATES
+        self.new_sessions = [
+            date + timedelta(days=7) for date in self.existing_sessions
+        ]
+
         # tk variables
         # self.xxx = tk.StringVar()
 
@@ -31,6 +55,8 @@ class AppFrame:
         # self.xxx.trace_add('write', self._value_changed)
 
         self._show()
+        sleep(0.25)
+        self._process()
 
     def _show(self):
         root = self.root
@@ -67,6 +93,42 @@ class AppFrame:
         frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
 
+        row = 0
+        existing_sessions_frame = self._existing_sessions_frame(frame)
+        existing_sessions_frame.grid(
+            row=row, column=0, sticky=tk.NSEW, padx=PAD, pady=PAD
+        )
+        row += 1
+
+        new_sessions_frame = self._new_sessions_frame(frame)
+        new_sessions_frame.grid(
+            row=row, column=0, sticky=tk.NSEW, padx=PAD, pady=PAD
+        )
+        row += 1
+
+        return frame
+
+    def _existing_sessions_frame(self, master: tk.Frame) -> ttk.Frame:
+        frame = ttk.Frame(master)
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        for row, session in enumerate(self.existing_sessions):
+            label = ttk.Label(
+                frame, text=session.strftime("%a %d-%b-%Y %H:%M")
+            )
+            label.grid(row=row, column=0, sticky=tk.W)
+
+        return frame
+
+    def _new_sessions_frame(self, master: tk.Frame) -> ttk.Frame:
+        frame = ttk.Frame(master)
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        for session in self.existing_sessions:
+            ttk.Label(frame, text=session.strftime("%Y-%m-%d %H:%M")).pack()
+
         return frame
 
     def _button_frame(self, master: tk.Frame) -> tk.Frame:
@@ -89,7 +151,7 @@ class AppFrame:
         self.button_frame.enable(enable)
 
     def _process(self, *args) -> None:
-        pass
+        self.session.process([self.existing_sessions[0]])
 
     def _dismiss(self, *args) -> None:
         self.root.destroy()

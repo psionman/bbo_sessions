@@ -12,6 +12,7 @@ from bbo_sessions import __app_name__, __author__
 # General
 HTML_DIR = resolve_path("html", __file__)
 HELP_URI = ""
+DATE_DISPLAY_FORMAT = "%a, %d %b %Y, %H:%M"
 
 # Paths
 CONFIG_PATH = Path(user_config_dir(__app_name__, __author__), "config.toml")
