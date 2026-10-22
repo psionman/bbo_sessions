@@ -12,7 +12,8 @@ from bbo_sessions import __app_name__, __author__
 # General
 HTML_DIR = resolve_path("html", __file__)
 HELP_URI = ""
-DATE_DISPLAY_FORMAT = "%a, %d %b %Y, %H:%M"
+DATE_DISPLAY_FORMAT = "%a, %d %b %Y"
+DATE_AND_TIME_DISPLAY_FORMAT = "%a, %d %b %Y, %H:%M"
 
 # Paths
 CONFIG_PATH = Path(user_config_dir(__app_name__, __author__), "config.toml")
@@ -22,7 +23,7 @@ USER_DATA_FILE = Path(USER_DATA_DIR, "data.json")
 STATE_DIR = user_state_dir(__app_name__, __author__)
 HOME = str(Path.home())
 ICON_DIR = f"{Path(__file__).parent}/assets/icons/"
-ICON_FILE = Path(ICON_DIR, "icon.png")
+ICON_FILE = Path(ICON_DIR, "games-highscores.png")
 
 # Buttons and text
 PSIUTILS_DIR = user_data_dir("psiutils", __author__)

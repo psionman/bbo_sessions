@@ -1,11 +1,14 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from bbo_sessions.constants import DATE_DISPLAY_FORMAT
+from bbo_sessions.constants import (
+    DATE_AND_TIME_DISPLAY_FORMAT,
+    DATE_DISPLAY_FORMAT,
+)
 
 LOGIN_URL = "https://www.bridgebase.com/v3/auth/login"
 SESSION_FILE = Path("bbo_session.json")
@@ -17,6 +20,10 @@ STARTS_PATTERN = re.compile(
 
 COOKIE_BUTTON = re.compile(r"accept|agree|allow", re.IGNORECASE)
 COOKIE_TIMEOUT = 1000
+
+START_HOUR = 19
+START_MINUTE = 20
+CLUB_NAME = "Phoenix"
 
 
 def accept_cookies(page: Page) -> None:
@@ -38,7 +45,7 @@ def get_session_dates(page: Page, timeout: int = 15000) -> list[datetime]:
     text = page.locator("body").inner_text()
 
     return [
-        datetime.strptime(match, DATE_DISPLAY_FORMAT)
+        datetime.strptime(match, DATE_AND_TIME_DISPLAY_FORMAT).date()
         for match in STARTS_PATTERN.findall(text)
     ]
 
@@ -62,23 +69,37 @@ class BboSession:
         page.wait_for_url(lambda url: "/auth/login" not in url)
         self._context.storage_state(path=SESSION_FILE)
 
-    def get_pending_sessions(self) -> list[str]:
+    def get_current_sessions(self) -> list[str]:
         page = self.page
         page.locator('mat-icon[data-mat-icon-name="director"]').click()
         page.get_by_role("tab", name="Pending Tournaments").click()
         return get_session_dates(page)
 
-    def process(self, starts: list[str]) -> None:
-        """Carry on with the chosen entry."""
-        for start in starts:
-            self._create_tournament(start.strftime(DATE_DISPLAY_FORMAT))
+    def create_new_tournaments(
+        self,
+        existing_sessions: list[datetime.date],
+        new_sessions: list[datetime.date],
+    ) -> None:
+        """Create new tournaments for the given session dates."""
+        try:
+            for existing, new in zip(
+                existing_sessions, new_sessions, strict=True
+            ):
+                self._create_tournament(existing, new)
+        except Exception as e:
+            print(f"Error creating tournaments: {e}")
+            return "ERROR"
+        finally:
+            self.close()
+        return "OK"
 
-    def _create_tournament(self, date) -> None:
+    def _create_tournament(
+        self, existing_session_date, new_session_date
+    ) -> None:
         page = self.page
 
-        tournament = page.locator(".itemClass").filter(
-            has_text=date[0] if isinstance(date, list) else date
-        )
+        existing_date = existing_session_date.strftime(DATE_DISPLAY_FORMAT)
+        tournament = page.locator(".itemClass").filter(has_text=existing_date)
 
         # Click on tournament
         tournament.click()
@@ -96,18 +117,6 @@ class BboSession:
 
         page.wait_for_timeout(500)
         # -------------------------------------------------
-        # Get the Title value before copying
-        # -------------------------------------------------
-        title_field = page.get_by_role("textbox", name="Title")
-        title_field.wait_for(state="visible", timeout=5000)
-
-        source_title = title_field.input_value().strip()
-        print(
-            f"Captured title: {source_title}"
-        )  # e.g. "#64520 Phoenix Bridge Club 21 October 2026"
-
-        page.wait_for_timeout(500)
-        # -------------------------------------------------
         # Click the Copy tournament button
         # -------------------------------------------------
         copy_btn = page.get_by_role("button", name="Copy tournament")
@@ -118,24 +127,41 @@ class BboSession:
         # -------------------------------------------------
         # Fill the title with the copied title
         # -------------------------------------------------
-        new_title = title_field.input_value().strip()
-        print(f"New title: {new_title}")
+        title_field = page.get_by_role("textbox", name="Title")
+        title_field.wait_for(state="visible", timeout=5000)
 
-        title_field.fill(self._update_title(page, source_title, source_title))
+        source_title = title_field.input_value().strip()
+        updated_title = self._update_title(page, source_title, source_title)
+        title_field.fill(updated_title)
 
         # Date and time
+        days, hours, minutes = self._get_time(new_session_date)
+
         day_btn = page.get_by_role("spinbutton", name="D")
-        source_day = day_btn.input_value().strip()
-        day_btn.fill(str(int(source_day) + 7))
+        hour_btn = page.get_by_role("spinbutton", name="H")
+        minute_btn = page.get_by_role("spinbutton", name="M")
+
+        day_btn.fill(str(days))
+        hour_btn.fill(str(hours))
+        minute_btn.fill(str(minutes))
 
         # Modify  the tournament
         modify_btn = page.get_by_role("button", name="Modify tournament")
         modify_btn.wait_for(state="visible", timeout=5000)
         modify_btn.click()
 
-        # page.pause()
-        self.close()
-        return True
+        # Close the updated tournament properties popup
+        page.wait_for_timeout(500)
+        popup = page.locator("tournament-properties-popup")
+        popup.get_by_role("button", name="Close").click()
+
+    def _get_time(self, session_date) -> tuple[str]:
+        days = (session_date - datetime.now().date()).days
+        now = datetime.now()
+        target = datetime.combine(now.date(), time(START_HOUR, START_MINUTE))
+        delta = target - now
+        total_minutes = int(delta.total_seconds() // 60)
+        return days, *divmod(total_minutes, 60)
 
     def _update_title(self, page, source_title: str, new_title: str) -> str:
         """Update the title field with the new title."""
@@ -150,17 +176,17 @@ class BboSession:
         # Extract the club number from the new title
         number_match = re.match(r"#(\d+)", new_title)
         if not number_match:
-            raise ValueError("Club number not found in new title")
+            raise ValueError("Tournament number not found in new title")
 
         tournament_number = number_match.group(1)
 
         # Extract the club name from the captured title
-        club_name = re.sub(r"^#\d+\s*", "", source_title)
-        club_name = re.sub(r"\s+\d{1,2} \w+ \d{4}$", "", club_name)
+        # club_name = re.sub(r"^#\d+\s*", "", source_title)
+        # club_name = re.sub(r"\s+\d{1,2} \w+ \d{4}$", "", club_name)
 
         # Build the result
         return (
-            f"#{tournament_number} {club_name} {new_date.strftime('%d %B %Y')}"
+            f"#{tournament_number} {CLUB_NAME} {new_date.strftime('%d %B %Y')}"
         )
 
     def close(self) -> None:

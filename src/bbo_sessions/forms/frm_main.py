@@ -5,8 +5,7 @@
 import os
 import tkinter as tk
 from datetime import datetime, timedelta
-from time import sleep
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from dotenv import load_dotenv
 from psiutils.constants import PAD
@@ -22,12 +21,12 @@ from bbo_sessions.text import Text
 
 txt = Text()
 DATES = [
-    datetime(2026, 10, 21, 19, 19),
     datetime(2026, 10, 22, 19, 20),
     datetime(2026, 10, 26, 20, 20),
     datetime(2026, 10, 28, 20, 20),
     datetime(2026, 10, 29, 20, 20),
 ]
+GET_FROM_BBO = True
 
 
 class AppFrame:
@@ -35,28 +34,17 @@ class AppFrame:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-
-        load_dotenv()
-        self.session: BboSession | None = BboSession()
-        self.session.login(
-            os.environ["BBO_USERNAME"], os.environ["BBO_PASSWORD"]
+        self.existing_sessions = (  # <class 'datetime.date'>
+            self._get_existing_sessions()
         )
-        self.existing_sessions = self.session.get_pending_sessions()
-
-        # self.existing_sessions = DATES
-        self.new_sessions = [
-            date + timedelta(days=7) for date in self.existing_sessions
-        ]
-
-        # tk variables
-        # self.xxx = tk.StringVar()
-
-        # Trace
-        # self.xxx.trace_add('write', self._value_changed)
+        self.new_sessions = (  # <class 'datetime.date'>
+            self._get_new_sessions()
+        )
 
         self._show()
-        sleep(0.25)
-        self._process()
+
+        self._poulate_new_sessions(self.new_sessions_frame)
+        self._verify_sessions()
 
     def _show(self):
         root = self.root
@@ -90,7 +78,6 @@ class AppFrame:
 
     def _main_frame(self, master: tk.Frame) -> ttk.Frame:
         frame = ttk.Frame(master)
-        frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
 
         row = 0
@@ -98,36 +85,31 @@ class AppFrame:
         existing_sessions_frame.grid(
             row=row, column=0, sticky=tk.NSEW, padx=PAD, pady=PAD
         )
-        row += 1
-
-        new_sessions_frame = self._new_sessions_frame(frame)
-        new_sessions_frame.grid(
-            row=row, column=0, sticky=tk.NSEW, padx=PAD, pady=PAD
+        self.new_sessions_frame = self._new_sessions_frame(frame)
+        self.new_sessions_frame.grid(
+            row=row, column=1, sticky=tk.NSEW, padx=PAD, pady=PAD
         )
-        row += 1
 
         return frame
 
     def _existing_sessions_frame(self, master: tk.Frame) -> ttk.Frame:
         frame = ttk.Frame(master)
-        frame.rowconfigure(0, weight=1)
-        frame.columnconfigure(0, weight=1)
+
+        row = 0
+        label = ttk.Label(frame, text="Existing Sessions")
+        label.grid(row=row, column=0, sticky=tk.W, padx=PAD)
+        row += 1
+        label = ttk.Label(frame, text="=================")
+        label.grid(row=row, column=0, sticky=tk.W, padx=PAD)
 
         for row, session in enumerate(self.existing_sessions):
-            label = ttk.Label(
-                frame, text=session.strftime("%a %d-%b-%Y %H:%M")
-            )
-            label.grid(row=row, column=0, sticky=tk.W)
+            existing = ttk.Label(frame, text=session.strftime("%d %b %Y (%A)"))
+            existing.grid(row=row + 2, column=0, sticky=tk.W, padx=PAD)
 
         return frame
 
     def _new_sessions_frame(self, master: tk.Frame) -> ttk.Frame:
         frame = ttk.Frame(master)
-        frame.rowconfigure(0, weight=1)
-        frame.columnconfigure(0, weight=1)
-
-        for session in self.existing_sessions:
-            ttk.Label(frame, text=session.strftime("%Y-%m-%d %H:%M")).pack()
 
         return frame
 
@@ -143,6 +125,85 @@ class AppFrame:
             frame.icon_button("cancel", self._dismiss),
         ]
 
+    def _get_existing_sessions(self) -> list[datetime]:
+        """Get the existing sessions."""
+        if GET_FROM_BBO:
+            load_dotenv()
+            self.session: BboSession | None = BboSession()
+            self.session.login(
+                os.environ["BBO_USERNAME"], os.environ["BBO_PASSWORD"]
+            )
+            current_sessions = self.session.get_current_sessions()
+            return [
+                date
+                for date in current_sessions
+                if date > datetime.now().date()
+            ]
+
+        return [
+            date.date()
+            for date in DATES
+            if date.date() > datetime.now().date()
+        ]
+
+    def _get_new_sessions(self) -> list[datetime]:
+        """Get the new sessions."""
+        cutoff = (datetime.today() + timedelta(days=14)).date()
+        existing_dates = {d for d in self.existing_sessions}
+
+        new_sessions = []
+        for start in self.existing_sessions:
+            new_start = start + timedelta(days=7)
+            if start <= cutoff and new_start not in existing_dates:
+                new_sessions.append(new_start)
+                existing_dates.add(new_start)  # avoid duplicates
+
+        return new_sessions
+
+    def _poulate_new_sessions(self, frame: tk.Frame) -> None:
+        """Populate the new sessions."""
+        for widget in self.new_sessions_frame.winfo_children():
+            widget.destroy()
+
+        row = 0
+        label = ttk.Label(frame, text="New Sessions")
+        label.grid(row=row, column=0, sticky=tk.W)
+        row += 1
+        label = ttk.Label(frame, text="=============")
+        label.grid(row=row, column=0, sticky=tk.W)
+
+        for row, session in enumerate(self.new_sessions):
+            new = ttk.Label(frame, text=session.strftime("%d %b %Y (%A)"))
+            new.grid(row=row + 2, column=0, sticky=tk.W)
+
+    def _verify_sessions(self):
+        """Verify that the sessions are valid."""
+        errors = []
+        weekdays = {0: 0, 2: 0, 3: 0}
+        days = {0: "Monday", 2: "Wednesday", 3: "Thursday"}
+        if len(self.existing_sessions) != 3:
+            errors.append("Invalid number of sessions")
+
+        for session in self.existing_sessions:
+            weekday = session.weekday()
+            if weekday in (0, 2, 3):
+                weekdays[weekday] += 1
+            else:
+                errors.append(
+                    f"{session.strftime('%d %b %Y (%A)')} "
+                    f"is not a Monday, Wednesday, or Thursday"
+                )
+
+        for weekday, count in weekdays.items():
+            if count != 1:
+                errors.append(f"{days[weekday]} has {count} entries")
+
+        if errors:
+            messagebox.showerror("Invalid Sessions", "\n".join(errors))
+            return False
+
+        return True
+
     def _value_changed(self, *args) -> bool:
         """
         Determine whether any configuration value has changed.
@@ -151,7 +212,35 @@ class AppFrame:
         self.button_frame.enable(enable)
 
     def _process(self, *args) -> None:
-        self.session.process([self.existing_sessions[0]])
+        if not GET_FROM_BBO:
+            self._debug_dates()
+            return
+        process = self.session.create_new_tournaments(
+            self.existing_sessions, self.new_sessions
+        )
+        if process == "OK":
+            messagebox.showinfo("Success", "Process completed successfully")
+        else:
+            messagebox.showerror("Error", "Process failed")
+        self._dismiss()
+
+    def _debug_dates(self) -> None:
+        print(f"GET_FROM_BBO {GET_FROM_BBO}")
+        from datetime import time
+
+        for session in self.new_sessions:
+            print((session - datetime.now().date()).days)
+            days = (session - datetime.now().date()).days
+            print(days)
+
+        now = datetime.now()
+        target = datetime.combine(now.date(), time(19, 20))
+
+        delta = target - now
+        total_minutes = int(delta.total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+
+        print(f"{hours}h {minutes}m")
 
     def _dismiss(self, *args) -> None:
         self.root.destroy()
