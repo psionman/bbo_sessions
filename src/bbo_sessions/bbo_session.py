@@ -22,10 +22,6 @@ STARTS_PATTERN = re.compile(
 COOKIE_BUTTON = re.compile(r"accept|agree|allow", re.IGNORECASE)
 COOKIE_TIMEOUT = 1000
 
-START_HOUR = 19
-START_MINUTE = 20
-CLUB_NAME = "Phoenix"
-
 
 def accept_cookies(page: Page) -> None:
     """Click the cookie consent button if one appears."""
@@ -57,8 +53,13 @@ class BboSession:
     def __init__(self, headless: bool = False) -> None:
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=headless)
-        self._context = self._browser.new_context()
+        self._context = self._browser.new_context(
+            viewport={"width": 1700, "height": 900}
+        )
         self.page: Page = self._context.new_page()
+        # Set Chromium page zoom to 75%
+        cdp = self._context.new_cdp_session(self.page)
+        cdp.send("Emulation.setPageScaleFactor", {"pageScaleFactor": 0.75})
 
     def login(self, username: str, password: str) -> None:
         page = self.page
@@ -68,6 +69,7 @@ class BboSession:
         page.locator("#password").fill(password)
         page.locator("#password").press("Enter")
         page.wait_for_url(lambda url: "/auth/login" not in url)
+        page.add_style_tag(content="body { zoom: 75%; }")
         self._context.storage_state(path=SESSION_FILE)
 
     def get_current_sessions(self) -> list[str]:

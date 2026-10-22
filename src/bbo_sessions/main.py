@@ -8,7 +8,6 @@ import os
 import sys
 import tkinter as tk
 
-import clipboard
 from dotenv import load_dotenv
 from forms.frm_main import AppFrame
 from psiutils.utilities import display_icon
@@ -20,11 +19,6 @@ from bbo_sessions.module_caller import ModuleCaller
 
 load_dotenv()
 uv_python = os.getenv("UV_PYTHON")
-if not uv_python:
-    print(
-        "Have you run export UV_PYTHON=/usr/bin/python3? - copied to clipboard"
-    )
-    clipboard.copy("export UV_PYTHON=/usr/bin/python3")
 
 
 PARSER_ARGS = (
