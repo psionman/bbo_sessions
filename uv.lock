@@ -45,7 +45,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "platformdirs", specifier = ">=4.13.0" },
     { name = "playwright", specifier = ">=1.64.0" },
-    { name = "psiutils", editable = "../../psi-utilities/psiutils" },
+    { name = "psiutils", specifier = ">=2.0.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -323,7 +323,7 @@ wheels = [
 [[package]]
 name = "psiutils"
 version = "2.0.3"
-source = { editable = "../../psi-utilities/psiutils" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
     { name = "iniconfig" },
@@ -344,31 +344,10 @@ dependencies = [
     { name = "tomli" },
     { name = "tomli-w" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "appdirs", specifier = ">=1.4.4" },
-    { name = "iniconfig", specifier = ">=2.1.0" },
-    { name = "markdown", specifier = ">=3.8.2" },
-    { name = "packaging", specifier = ">=25.0" },
-    { name = "pillow", specifier = ">=11.3.0" },
-    { name = "pluggy", specifier = ">=1.6.0" },
-    { name = "psi-toml", specifier = ">=0.0.12" },
-    { name = "psiconfig", specifier = ">=0.0.14" },
-    { name = "pycairo", specifier = ">=1.28.0" },
-    { name = "pygments", specifier = ">=2.19.2" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "ruff", specifier = ">=0.15.15" },
-    { name = "structlog", specifier = ">=25.4.0" },
-    { name = "tkcalendar", specifier = ">=1.6.1" },
-    { name = "tkinterweb", specifier = ">=4.4.4" },
-    { name = "tkinterweb-tkhtml", specifier = ">=1.1.1" },
-    { name = "tomli", specifier = ">=2.2.1" },
-    { name = "tomli-w", specifier = ">=1.2.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/17/70/cd02fdfda4e556e53878449650af3e3bac46c585cf8fb9df3095b7fd83b6/psiutils-2.0.3.tar.gz", hash = "sha256:03de0429425156a1848f1a9e647c31a24e29bb9e60f2b193e4a0fedee86b36fe", size = 238262, upload-time = "2026-09-08T09:38:38.28Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/98/4e50b925695b6f9ef7b0ecd52b4bcd74e997e6a028e0fc78a2780ea5b690/psiutils-2.0.3-py3-none-any.whl", hash = "sha256:b5326756ebc98d997acea40a9801da3382ced72833b36c7702a77b6127cb3393", size = 266288, upload-time = "2026-09-08T09:38:36.765Z" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest" }]
 
 [[package]]
 name = "pycairo"
@@ -493,14 +472,14 @@ wheels = [
 
 [[package]]
 name = "tkinterweb"
-version = "4.25.4"
+version = "4.25.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tkinterweb-tkhtml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/8e/57e7249a3d85459a2cd09f0c7476d9682383b7a3cd84e32e683a5ffad859/tkinterweb-4.25.4.tar.gz", hash = "sha256:ee1a458d693dff74b6e4cae47b5b64f741c591a72ef8172b104ceb241c98d2d8", size = 112965, upload-time = "2026-09-10T22:55:58.24Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/0c/e2a104edfbc6a9a853fab5b4de1d9188efe1a4812b0bb8f484a890c28b3d/tkinterweb-4.25.5.tar.gz", hash = "sha256:52f62f29cbcc000774bafc46465e18fce214de24163f3cbe26735a843125673d", size = 112997, upload-time = "2026-10-20T21:44:50.811Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/7e/9717c012bc9a2a36c8dd0f1a9b61b45d8b9bf46015fc973369ac933881bb/tkinterweb-4.25.4-py3-none-any.whl", hash = "sha256:22be8a4d914a93ade160d6155dc2bc54597cb59df8ef00f3936c02a2ae7ad38e", size = 116910, upload-time = "2026-09-10T22:55:56.951Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/76/73c8766c4e8fb6dae3ed566ddc1f3ab8bec13214f18b918aa2c748d3e895/tkinterweb-4.25.5-py3-none-any.whl", hash = "sha256:90f817a0015126e2c17b23f01ef08dc34b6aacf2455808649d97e7dae7d897cf", size = 116943, upload-time = "2026-10-20T21:44:48.984Z" },
 ]
 
 [[package]]
