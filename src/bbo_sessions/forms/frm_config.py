@@ -2,10 +2,12 @@
 """ConfigFrame for BBO Sessions.."""
 
 import tkinter as tk
+from datetime import time
 from pathlib import Path
 from tkinter import filedialog, ttk
 
 from psiutils.constants import PAD
+from psiutils.date_picker import TimePicker
 from psiutils.utilities import window_resize
 
 from bbo_sessions import logger
@@ -84,6 +86,21 @@ class ConfigFrame:
         )
         button.grid(row=row, column=2, padx=PAD)
 
+        row += 1
+        label = ttk.Label(frame, text="Club name")
+        label.grid(row=row, column=0, sticky=tk.E, padx=PAD, pady=PAD)
+
+        entry = ttk.Entry(frame, textvariable=self.club_name)
+        entry.grid(row=row, column=1, sticky=tk.EW)
+
+        row += 1
+        start_time = time(self.start_hour.get(), self.start_minute.get())
+        self.start_time_picker = TimePicker(frame, start_time)
+        self.start_time_picker.grid(row=row, column=1, sticky=tk.EW)
+        self.start_time_picker.bind(
+            "<<TimeChanged>>", self._check_value_changed
+        )
+
         return frame
 
     def _button_frame(self, master: tk.Frame) -> tk.Frame:
@@ -137,6 +154,8 @@ class ConfigFrame:
 
     def _config_changes(self) -> dict:
         stored = config.config
+        self.start_hour.set(self.start_time_picker.hour)
+        self.start_minute.set(self.start_time_picker.minute)
         return {
             field: (stored[field], getattr(self, field).get())
             for field in FIELDS

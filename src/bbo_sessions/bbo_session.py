@@ -5,6 +5,7 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from bbo_sessions.config import config
 from bbo_sessions.constants import (
     DATE_AND_TIME_DISPLAY_FORMAT,
     DATE_DISPLAY_FORMAT,
@@ -158,7 +159,9 @@ class BboSession:
     def _get_time(self, session_date) -> tuple[str]:
         days = (session_date - datetime.now().date()).days
         now = datetime.now()
-        target = datetime.combine(now.date(), time(START_HOUR, START_MINUTE))
+        target = datetime.combine(
+            now.date(), time(config.start_hour, config.start_minute)
+        )
         delta = target - now
         total_minutes = int(delta.total_seconds() // 60)
         return days, *divmod(total_minutes, 60)
@@ -186,7 +189,8 @@ class BboSession:
 
         # Build the result
         return (
-            f"#{tournament_number} {CLUB_NAME} {new_date.strftime('%d %B %Y')}"
+            f"#{tournament_number} {config.club_name} "
+            f"{new_date.strftime('%d %B %Y')}"
         )
 
     def close(self) -> None:

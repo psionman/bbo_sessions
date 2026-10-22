@@ -10,6 +10,9 @@ from bbo_sessions.constants import CONFIG_PATH, USER_DATA_DIR
 # e.g. self.data_directory is a tk.StringVar
 FIELDS = {
     "data_directory": ConfigField(str, USER_DATA_DIR),
+    "club_name": ConfigField(str, "club_name"),
+    "start_hour": ConfigField(int, 19),
+    "start_minute": ConfigField(int, 20),
 }
 
 DEFAULT_CONFIG = {
