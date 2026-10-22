@@ -35,6 +35,7 @@ MANIFEST
 # OS junk
 .DS_Store
 Thumbs.db
+tmp/
 
 # Env / secrets
 .env
