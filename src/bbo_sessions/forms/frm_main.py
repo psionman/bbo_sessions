@@ -16,6 +16,7 @@ from bbo_sessions.buttons import ButtonFrame, IconButton
 from bbo_sessions.config import config
 from bbo_sessions.constants import APP_TITLE
 from bbo_sessions.main_menu import MainMenu
+from bbo_sessions.models import Session
 from bbo_sessions.state import state
 from bbo_sessions.text import Text
 
@@ -34,10 +35,11 @@ class AppFrame:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.existing_sessions = (  # <class 'datetime.date'>
+        self.session: BboSession | None = BboSession()
+        self.existing_sessions = (  # <class Session>
             self._get_existing_sessions()
         )
-        self.new_sessions = (  # <class 'datetime.date'>
+        self.new_sessions = (  # <class Session>
             self._get_new_sessions()
         )
 
@@ -103,7 +105,9 @@ class AppFrame:
         label.grid(row=row, column=0, sticky=tk.W, padx=PAD)
 
         for row, session in enumerate(self.existing_sessions):
-            existing = ttk.Label(frame, text=session.strftime("%d %b %Y (%A)"))
+            existing = ttk.Label(
+                frame, text=session.date.strftime("%d %b %Y (%A)")
+            )
             existing.grid(row=row + 2, column=0, sticky=tk.W, padx=PAD)
 
         return frame
@@ -129,16 +133,15 @@ class AppFrame:
         """Get the existing sessions."""
         if GET_FROM_BBO:
             load_dotenv()
-            self.session: BboSession | None = BboSession()
             self.session.login(
                 os.environ["BBO_USERNAME"], os.environ["BBO_PASSWORD"]
             )
             current_sessions = self.session.get_current_sessions()
-            return [
-                date
-                for date in current_sessions
-                if date > datetime.now().date()
-            ]
+            sessions = []
+            for session in current_sessions:
+                if session.date > datetime.now().date():
+                    sessions.append(session)
+            return sessions
 
         return [
             date.date()
@@ -149,13 +152,13 @@ class AppFrame:
     def _get_new_sessions(self) -> list[datetime]:
         """Get the new sessions."""
         cutoff = (datetime.today() + timedelta(days=14)).date()
-        existing_dates = {d for d in self.existing_sessions}
+        existing_dates = {session.date for session in self.existing_sessions}
 
         new_sessions = []
-        for start in self.existing_sessions:
-            new_start = start + timedelta(days=7)
-            if start <= cutoff and new_start not in existing_dates:
-                new_sessions.append(new_start)
+        for session in self.existing_sessions:
+            new_start = session.date + timedelta(days=7)
+            if session.date <= cutoff and new_start not in existing_dates:
+                new_sessions.append(Session(session.number, new_start))
                 existing_dates.add(new_start)  # avoid duplicates
 
         return new_sessions
@@ -173,7 +176,7 @@ class AppFrame:
         label.grid(row=row, column=0, sticky=tk.W)
 
         for row, session in enumerate(self.new_sessions):
-            new = ttk.Label(frame, text=session.strftime("%d %b %Y (%A)"))
+            new = ttk.Label(frame, text=session.date.strftime("%d %b %Y (%A)"))
             new.grid(row=row + 2, column=0, sticky=tk.W)
 
     def _verify_sessions(self):
@@ -185,12 +188,12 @@ class AppFrame:
             errors.append("Invalid number of sessions")
 
         for session in self.existing_sessions:
-            weekday = session.weekday()
+            weekday = session.date.weekday()
             if weekday in (0, 2, 3):
                 weekdays[weekday] += 1
             else:
                 errors.append(
-                    f"{session.strftime('%d %b %Y (%A)')} "
+                    f"{session.date.strftime('%d %b %Y (%A)')} "
                     f"is not a Monday, Wednesday, or Thursday"
                 )
 
@@ -229,8 +232,8 @@ class AppFrame:
         from datetime import time
 
         for session in self.new_sessions:
-            print((session - datetime.now().date()).days)
-            days = (session - datetime.now().date()).days
+            print((session.date - datetime.now().date()).days)
+            days = (session.date - datetime.now().date()).days
             print(days)
 
         now = datetime.now()

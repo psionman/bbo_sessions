@@ -5,20 +5,14 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from bbo_sessions import logger
 from bbo_sessions.config import config
-from bbo_sessions.constants import (
-    DATE_AND_TIME_DISPLAY_FORMAT,
-    DATE_DISPLAY_FORMAT,
-)
+from bbo_sessions.models import Session
 
 LOGIN_URL = "https://www.bridgebase.com/v3/auth/login"
 SESSION_FILE = Path("bbo_session.json")
 
-
-STARTS_PATTERN = re.compile(
-    r"Starts:\s*(\w{3}, \d{1,2} \w{3} \d{4}, \d{1,2}:\d{2})"
-)
-
+SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
 COOKIE_BUTTON = re.compile(r"accept|agree|allow", re.IGNORECASE)
 COOKIE_TIMEOUT = 1000
 
@@ -36,15 +30,18 @@ def get_session_dates(page: Page, timeout: int = 15000) -> list[datetime]:
     """Return the start of every 'Starts: ...' entry as a datetime."""
     page.wait_for_function(
         "(pattern) => new RegExp(pattern).test(document.body.innerText)",
-        arg=STARTS_PATTERN.pattern,
+        arg=SESSION_PATTERN.pattern,
         timeout=timeout,
     )
     text = page.locator("body").inner_text()
-
-    return [
-        datetime.strptime(match, DATE_AND_TIME_DISPLAY_FORMAT).date()
-        for match in STARTS_PATTERN.findall(text)
-    ]
+    found = []
+    for match in SESSION_PATTERN.finditer(text):
+        try:
+            when = datetime.strptime(match.group(2), "%d %B %Y").date()
+        except ValueError:
+            continue
+        found.append(Session(number=match.group(1), date=when))
+    return found
 
 
 class BboSession:
@@ -53,9 +50,13 @@ class BboSession:
     def __init__(self, headless: bool = False) -> None:
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=headless)
-        self._context = self._browser.new_context(
-            viewport={"width": 1700, "height": 900}
-        )
+        try:
+            self._context = self._browser.new_context(
+                viewport={"width": 1700, "height": 900}
+            )
+        except Exception as e:
+            logger.error(f"Failed to create browser context: {e}")
+            raise
         self.page: Page = self._context.new_page()
         # Set Chromium page zoom to 75%
         cdp = self._context.new_cdp_session(self.page)
@@ -80,8 +81,8 @@ class BboSession:
 
     def create_new_tournaments(
         self,
-        existing_sessions: list[datetime.date],
-        new_sessions: list[datetime.date],
+        existing_sessions: list[Session],
+        new_sessions: list[Session],
     ) -> None:
         """Create new tournaments for the given session dates."""
         try:
@@ -96,27 +97,17 @@ class BboSession:
             self.close()
         return "OK"
 
-    def _create_tournament(
-        self, existing_session_date, new_session_date
-    ) -> None:
+    def _create_tournament(self, existing_session_date, new_session) -> None:
         page = self.page
 
-        existing_date = existing_session_date.strftime(DATE_DISPLAY_FORMAT)
-        tournament = page.locator(".itemClass").filter(has_text=existing_date)
-
-        # Click on tournament
-        tournament.click()
-
-        page.wait_for_timeout(500)
-
-        # Click on menu
-        edit_item = (
-            page.locator("menu-item")
-            .filter(has=page.locator("div").filter(has_text="Edit Tournament"))
-            .filter(has_text="Edit Tournament")
+        existing_session_text = (
+            f"#{existing_session_date.number} Phoenix Bridge Club "
+            f"{existing_session_date.date.strftime('%d')}"
         )
+        print(f"Creating tournament for {existing_session_text}")
 
-        edit_item.click()
+        page.get_by_text(existing_session_text).click()
+        page.get_by_text("Edit Tournament").click()
 
         page.wait_for_timeout(500)
         # -------------------------------------------------
@@ -138,7 +129,7 @@ class BboSession:
         title_field.fill(updated_title)
 
         # Date and time
-        days, hours, minutes = self._get_time(new_session_date)
+        days, hours, minutes = self._get_time(new_session.date)
 
         day_btn = page.get_by_role("spinbutton", name="D")
         hour_btn = page.get_by_role("spinbutton", name="H")
