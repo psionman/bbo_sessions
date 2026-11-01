@@ -104,7 +104,6 @@ class BboSession:
             f"#{existing_session_date.number} Phoenix Bridge Club "
             f"{existing_session_date.date.strftime('%d')}"
         )
-        print(f"Creating tournament for {existing_session_text}")
 
         page.get_by_text(existing_session_text).click()
         page.get_by_text("Edit Tournament").click()
