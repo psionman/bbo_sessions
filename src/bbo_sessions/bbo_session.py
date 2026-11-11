@@ -1,83 +1,59 @@
 import re
 from datetime import datetime, time, timedelta
-from pathlib import Path
 
-from playwright.sync_api import Page, sync_playwright
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-
-from bbo_sessions import logger
+from bbo_sessions.bbo_phoenix import BboPhoenixSession
 from bbo_sessions.config import config
 from bbo_sessions.models import Session
 
-LOGIN_URL = "https://www.bridgebase.com/v3/auth/login"
-SESSION_FILE = Path("bbo_session.json")
-
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
-COOKIE_BUTTON = re.compile(r"accept|agree|allow", re.IGNORECASE)
-COOKIE_TIMEOUT = 1000
 
 
-def accept_cookies(page: Page) -> None:
-    """Click the cookie consent button if one appears."""
-    button = page.get_by_role("button", name=COOKIE_BUTTON).first
-    try:
-        button.click(timeout=COOKIE_TIMEOUT)
-    except PlaywrightTimeoutError:
-        pass  # No banner this time
+class WebSessionError(Exception):
+    """Exception raised for web session-related errors."""
 
 
-def get_session_dates(page: Page, timeout: int = 15000) -> list[datetime]:
-    """Return the start of every 'Starts: ...' entry as a datetime."""
-    page.wait_for_function(
-        "(pattern) => new RegExp(pattern).test(document.body.innerText)",
-        arg=SESSION_PATTERN.pattern,
-        timeout=timeout,
-    )
-    text = page.locator("body").inner_text()
-    found = []
-    for match in SESSION_PATTERN.finditer(text):
-        try:
-            when = datetime.strptime(match.group(2), "%d %B %Y").date()
-        except ValueError:
-            continue
-        found.append(Session(number=match.group(1), date=when))
-    return found
-
-
-class BboSession:
+class BboSession(BboPhoenixSession):
     """Own the browser so it stays open between button clicks."""
 
     def __init__(self, headless: bool = False) -> None:
-        self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=headless)
-        try:
-            self._context = self._browser.new_context(
-                viewport={"width": 1700, "height": 900}
-            )
-        except Exception as e:
-            logger.error(f"Failed to create browser context: {e}")
-            raise
-        self.page: Page = self._context.new_page()
-        # Set Chromium page zoom to 75%
-        cdp = self._context.new_cdp_session(self.page)
-        cdp.send("Emulation.setPageScaleFactor", {"pageScaleFactor": 0.75})
+        super().__init__(headless=headless)
 
-    def login(self, username: str, password: str) -> None:
-        page = self.page
-        page.goto(LOGIN_URL)
-        accept_cookies(page)
-        page.locator("#username").fill(username)
-        page.locator("#password").fill(password)
-        page.locator("#password").press("Enter")
-        page.wait_for_url(lambda url: "/auth/login" not in url)
-        page.add_style_tag(content="body { zoom: 75%; }")
-        self._context.storage_state(path=SESSION_FILE)
+    def modify_tournaments(self, timeout: int = 15000) -> None:
+        """Modify existing tournaments."""
+        self._login()
 
-    def get_current_sessions(self) -> list[str]:
         page = self.page
-        page.locator('mat-icon[data-mat-icon-name="director"]').click()
-        page.get_by_role("tab", name="Pending Tournaments").click()
-        return get_session_dates(page)
+        page.wait_for_function(
+            "(pattern) => new RegExp(pattern).test(document.body.innerText)",
+            arg=SESSION_PATTERN.pattern,
+            timeout=timeout,
+        )
+        text = page.locator("body").inner_text()
+
+        for match in SESSION_PATTERN.finditer(text):
+            try:
+                when = datetime.strptime(match.group(2), "%d %B %Y").date()
+            except ValueError:
+                continue
+
+            tournament_text = match.group(0)
+
+            # Open tournament menu
+            page.get_by_text(tournament_text, exact=False).first.click()
+
+            # Select Edit Tournament
+            page.get_by_text("Edit Tournament", exact=True).click()
+
+            # Modify tournament
+            page.get_by_role("button", name="Modify tournament").click()
+
+            # Close tournament properties popup
+            page.locator("tournament-properties-popup").get_by_role(
+                "button", name="Close"
+            ).click()
+            print(f"Modified tournament {when}")
+
+        self.close()
 
     def create_new_tournaments(
         self,
@@ -175,16 +151,8 @@ class BboSession:
 
         tournament_number = number_match.group(1)
 
-        # Extract the club name from the captured title
-        # club_name = re.sub(r"^#\d+\s*", "", source_title)
-        # club_name = re.sub(r"\s+\d{1,2} \w+ \d{4}$", "", club_name)
-
         # Build the result
         return (
             f"#{tournament_number} {config.club_name} "
             f"{new_date.strftime('%d %B %Y')}"
         )
-
-    def close(self) -> None:
-        self._browser.close()
-        self._playwright.stop()

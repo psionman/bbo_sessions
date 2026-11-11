@@ -2,12 +2,10 @@
 
 """AppFrame for BBO Sessions."""
 
-import os
 import tkinter as tk
 from datetime import datetime, timedelta
 from tkinter import messagebox, ttk
 
-from dotenv import load_dotenv
 from psiutils.constants import PAD
 from psiutils.utilities import window_resize
 
@@ -72,7 +70,7 @@ class AppFrame:
 
         root.update_idletasks()
         root.bind("<Control-x>", self._dismiss)
-        root.bind("<Control-o>", self._process)
+        root.bind("<Control-o>", self._create_tournaments)
         root.bind(
             "<Configure>",
             lambda e: window_resize(root, __file__, state),
@@ -124,22 +122,22 @@ class AppFrame:
         return frame
 
     def _frame_buttons(self, frame: ButtonFrame) -> list[IconButton]:
+        modify_button = IconButton(
+            frame, "Modify", "document-edit-sign", self._modify
+        )
         return [
-            frame.icon_button("build", self._process),
+            frame.icon_button("build", self._create_tournaments),
+            modify_button,
             frame.icon_button("cancel", self._dismiss),
         ]
 
     def _get_existing_sessions(self) -> list[datetime]:
         """Get the existing sessions."""
         if GET_FROM_BBO:
-            load_dotenv()
-            self.session.login(
-                os.environ["BBO_USERNAME"], os.environ["BBO_PASSWORD"]
-            )
             current_sessions = self.session.get_current_sessions()
             sessions = []
             for session in current_sessions:
-                if session.date > datetime.now().date():
+                if session.date >= datetime.now().date():
                     sessions.append(session)
             return sessions
 
@@ -214,10 +212,11 @@ class AppFrame:
         enable = self.xxx.get() != config.xxx
         self.button_frame.enable(enable)
 
-    def _process(self, *args) -> None:
+    def _create_tournaments(self, *args) -> None:
         if not GET_FROM_BBO:
             self._debug_dates()
             return
+
         process = self.session.create_new_tournaments(
             self.existing_sessions, self.new_sessions
         )
@@ -225,6 +224,11 @@ class AppFrame:
             messagebox.showinfo("Success", "Process completed successfully")
         else:
             messagebox.showerror("Error", "Process failed")
+        self._dismiss()
+
+    def _modify(self, *args) -> None:
+        self.session.modify_tournaments()
+        messagebox.showinfo("Success", "Tournaments updated")
         self._dismiss()
 
     def _debug_dates(self) -> None:
