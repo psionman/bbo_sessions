@@ -109,7 +109,7 @@ class BboSession(BboPhoenixSession):
 
         day_btn.fill(str(days))
         hour_btn.fill(str(hours))
-        minute_btn.fill(str(minutes + v))
+        minute_btn.fill(str(minutes + EXTRA_MINUTES))
 
         # Modify  the tournament
         modify_btn = page.get_by_role("button", name="Modify tournament")
