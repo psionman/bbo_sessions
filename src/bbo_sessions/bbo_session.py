@@ -8,10 +8,6 @@ from bbo_sessions.models import Session
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
 
 
-class WebSessionError(Exception):
-    """Exception raised for web session-related errors."""
-
-
 class BboSession(BboPhoenixSession):
     """Own the browser so it stays open between button clicks."""
 

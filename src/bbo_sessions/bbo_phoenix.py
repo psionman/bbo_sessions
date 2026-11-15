@@ -10,6 +10,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from bbo_sessions import logger
 from bbo_sessions.models import Session
+from bbo_sessions.playwright_launch import launch_chromium
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ class BboPhoenixSession:
 
     def __init__(self, headless: bool = False) -> None:
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=headless)
+        self._browser = launch_chromium(self._playwright, headless=headless)
         self.logged_in = False
         try:
             self._context = self._browser.new_context(

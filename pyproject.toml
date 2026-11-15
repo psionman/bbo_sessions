@@ -11,7 +11,7 @@ dependencies = [
     "clipboard>=0.0.4",
     "dotenv>=0.9.9",
     "platformdirs>=4.13.0",
-    "playwright>=1.64.0",
+    "playwright == 1.64.0",
     "psiutils>=2.0.3",
 ]
 
