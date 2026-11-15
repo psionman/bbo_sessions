@@ -6,6 +6,7 @@ from bbo_sessions.config import config
 from bbo_sessions.models import Session
 
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
+EXTRA_MINUTES = 2
 
 
 class BboSession(BboPhoenixSession):
@@ -108,7 +109,7 @@ class BboSession(BboPhoenixSession):
 
         day_btn.fill(str(days))
         hour_btn.fill(str(hours))
-        minute_btn.fill(str(minutes))
+        minute_btn.fill(str(minutes + v))
 
         # Modify  the tournament
         modify_btn = page.get_by_role("button", name="Modify tournament")
