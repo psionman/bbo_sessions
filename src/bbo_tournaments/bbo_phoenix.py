@@ -8,8 +8,8 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from bbo_sessions import logger
-from bbo_sessions.playwright_launch import launch_chromium
+from bbo_tournaments import logger
+from bbo_tournaments.playwright_launch import launch_chromium
 
 load_dotenv()
 
@@ -24,7 +24,8 @@ COOKIE_BUTTON = re.compile(r"accept|agree|allow", re.IGNORECASE)
 COOKIE_TIMEOUT = 1000
 
 LOGIN_TIMEOUT = 15  # Seconds to wait for BBO to accept the login
-FAILURE_SHOT = "login_failed.png"
+SCREEN_SHOTS = "screenshots"
+FAILURE_SHOT = Path(SCREEN_SHOTS, "login_failed.png")
 
 
 class WebSessionError(Exception):
@@ -163,7 +164,7 @@ class BboPhoenixSession:
         sign_in.click(timeout=5000)
         page.wait_for_timeout(3000)
         # logger.info("url after click: %s", page.url)
-        page.screenshot(path="after_signin_click.png")
+        page.screenshot(path=Path(SCREEN_SHOTS, "after_signin_click.png"))
 
     def _accept_cookies(self, page: Page) -> None:
         """Click the cookie consent button if one appears."""

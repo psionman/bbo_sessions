@@ -7,7 +7,7 @@ from pathlib import Path
 from platformdirs import user_config_dir, user_data_dir, user_state_dir
 from psiutils.known_paths import resolve_path
 
-from bbo_sessions import __app_name__, __author__
+from bbo_tournaments import __app_name__, __author__
 
 # General
 HTML_DIR = resolve_path("html", __file__)

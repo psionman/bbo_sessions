@@ -8,16 +8,16 @@ from tkinter import messagebox
 
 from psiutils.menus import Menu, MenuItem
 
-from bbo_sessions import (
+from bbo_tournaments import (
     __app_name__,
     __author__,
     __summary__,
     __version__,
 )
-from bbo_sessions.config import config
-from bbo_sessions.constants import HELP_URI
-from bbo_sessions.forms.frm_config import ConfigFrame
-from bbo_sessions.text import Text
+from bbo_tournaments.config import config
+from bbo_tournaments.constants import HELP_URI
+from bbo_tournaments.forms.frm_config import ConfigFrame
+from bbo_tournaments.text import Text
 
 txt = Text()
 

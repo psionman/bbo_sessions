@@ -7,7 +7,7 @@ wheels/
 *.egg-info
 .env
 *.log
-
+screenshots/
 # Virtual environments
 .venv
 tmp/

@@ -1,5 +1,5 @@
 [project]
-name = "bbo_sessions"
+name = "bbo_tournaments"
 version = "0.1.0"
 description = "Setup BBO sessions"
 authors = [

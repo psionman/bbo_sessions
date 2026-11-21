@@ -3,10 +3,10 @@ from datetime import datetime, time, timedelta
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from bbo_sessions import logger
-from bbo_sessions.bbo_phoenix import BboPhoenixSession
-from bbo_sessions.config import config
-from bbo_sessions.models import Tournament
+from bbo_tournaments import logger
+from bbo_tournaments.bbo_phoenix import BboPhoenixSession
+from bbo_tournaments.config import config
+from bbo_tournaments.models import Tournament
 
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
 EXTRA_MINUTES = 2

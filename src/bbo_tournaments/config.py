@@ -4,7 +4,7 @@
 
 from psiconfig import ConfigField, TomlConfig
 
-from bbo_sessions.constants import CONFIG_PATH, USER_DATA_DIR
+from bbo_tournaments.constants import CONFIG_PATH, USER_DATA_DIR
 
 # FIELDS for config, and to create tkinter variables in frm_config.py
 # e.g. self.data_directory is a tk.StringVar

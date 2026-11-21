@@ -3,8 +3,8 @@
 
 from psiutils.module_caller import ModuleCaller as ModuleCallerBase
 
-from bbo_sessions.bbo_session import BboSession
-from bbo_sessions.forms.frm_config import ConfigFrame
+from bbo_tournaments.bbo_session import BboSession
+from bbo_tournaments.forms.frm_config import ConfigFrame
 
 
 class ModuleCaller(ModuleCallerBase):

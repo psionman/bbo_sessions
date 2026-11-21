@@ -10,12 +10,12 @@ from psiutils.constants import PAD
 from psiutils.date_picker import TimePicker
 from psiutils.utilities import window_resize
 
-from bbo_sessions import logger
-from bbo_sessions.buttons import ButtonFrame, IconButton
-from bbo_sessions.config import FIELDS, config, save_config
-from bbo_sessions.constants import APP_TITLE
-from bbo_sessions.state import state
-from bbo_sessions.text import Text
+from bbo_tournaments import logger
+from bbo_tournaments.buttons import ButtonFrame, IconButton
+from bbo_tournaments.config import FIELDS, config, save_config
+from bbo_tournaments.constants import APP_TITLE
+from bbo_tournaments.state import state
+from bbo_tournaments.text import Text
 
 txt = Text()
 

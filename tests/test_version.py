@@ -1,6 +1,6 @@
 import re
 
-from bbo_sessions._version import __version__
+from bbo_tournaments._version import __version__
 
 
 def test_version():

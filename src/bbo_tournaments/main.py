@@ -13,10 +13,10 @@ from forms.frm_main import AppFrame
 from psiutils.utilities import display_icon
 from psiutils.widgets import get_styles
 
-from bbo_sessions import __app_name__, __version__
-from bbo_sessions.bbo_session import BboSession
-from bbo_sessions.constants import APP_TITLE, ICON_FILE
-from bbo_sessions.module_caller import ModuleCaller
+from bbo_tournaments import __app_name__, __version__, logger
+from bbo_tournaments.bbo_session import BboSession
+from bbo_tournaments.constants import APP_TITLE, ICON_FILE
+from bbo_tournaments.module_caller import ModuleCaller
 
 load_dotenv()
 uv_python = os.getenv("UV_PYTHON")
@@ -53,9 +53,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     if "create_tournaments" in sys.argv:
+        logger.info("Creating tournaments sarted")
         BboSession(True).cron_create_tournaments()
         sys.exit(0)
     if "delete_tournaments" in sys.argv:
+        logger.info("Deleting tournaments")
         BboSession(True).delete_tournaments()
         sys.exit(0)
     if "--version" in sys.argv:

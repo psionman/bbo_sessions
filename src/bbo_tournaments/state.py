@@ -5,7 +5,7 @@ from time import sleep
 
 import tomli_w
 
-from bbo_sessions.constants import STATE_DIR
+from bbo_tournaments.constants import STATE_DIR
 
 DEFAULT_GEOMETRY = {
     "frm_main": "500x600",

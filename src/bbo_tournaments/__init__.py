@@ -7,7 +7,7 @@ from importlib.metadata import metadata, version
 from psiutils.utilities import psi_logger
 
 # must be package name i.e. directory under /src/
-__app_name__ = "bbo_sessions"
+__app_name__ = "bbo_tournaments"
 
 logger = psi_logger(__app_name__)
 
