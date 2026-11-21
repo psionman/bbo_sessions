@@ -149,7 +149,6 @@ class BboSession(BboPhoenixSession):
                 "Nothing matches. Similar text: %s",
                 [t.strip()[:80] for t in similar.all_inner_texts()][:10],
             )
-            page.screenshot(path="session_link.png")
             raise RuntimeError(
                 f"Tournament link not found: {tournament_text!r}"
             )
@@ -158,7 +157,6 @@ class BboSession(BboPhoenixSession):
             link.first.click(timeout=10000)
         except PlaywrightTimeoutError as error:
             logger.error("Click failed: %s", str(error)[:600])
-            page.screenshot(path="session_link.png")
             raise
 
     def _update_title(self) -> None:
