@@ -1,6 +1,5 @@
 import os
 import re
-from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -9,7 +8,6 @@ from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from bbo_sessions import logger
-from bbo_sessions.models import Session
 from bbo_sessions.playwright_launch import launch_chromium
 
 load_dotenv()
@@ -32,7 +30,7 @@ class WebSessionError(Exception):
 class BboPhoenixSession:
     """Own the browser so it stays open between button clicks."""
 
-    def __init__(self, headless: bool = False) -> None:
+    def __init__(self, headless: bool = True) -> None:
         self._playwright = sync_playwright().start()
         self._browser = launch_chromium(self._playwright, headless=headless)
         self.logged_in = False
@@ -45,10 +43,11 @@ class BboPhoenixSession:
             raise
         self.page: Page = self._context.new_page()
         # Set Chromium page zoom to 75%
-        cdp = self._context.new_cdp_session(self.page)
-        cdp.send("Emulation.setPageScaleFactor", {"pageScaleFactor": 0.75})
+        # cdp = self._context.new_cdp_session(self.page)
+        # cdp.send("Emulation.setPageScaleFactor", {"pageScaleFactor": 0.75})
+        logger.info("Browser initialized")
 
-    def _login(self) -> None:
+    def login(self) -> None:
         page = self.page
         if self.logged_in:
             return
@@ -59,12 +58,14 @@ class BboPhoenixSession:
             )
             page.locator("#username").wait_for(timeout=15000)
         except PlaywrightTimeoutError as error:
+            logger.error("BBO did not load in time")
             self.close()
             raise WebSessionError(
                 "BBO did not load in time. Check your connection and "
                 "try again."
             ) from error
         except PlaywrightError as error:
+            logger.error(f"Could not reach BBO: {error}")
             self.close()
             raise WebSessionError(f"Could not reach BBO: {error}") from error
 
@@ -72,7 +73,7 @@ class BboPhoenixSession:
 
         self._enter_credentials(BBO_USERNAME, BBO_PASSWORD)
         page.wait_for_url(lambda url: "/auth/login" not in url)
-        page.add_style_tag(content="body { zoom: 75%; }")
+        # page.add_style_tag(content="body { zoom: 75%; }")
         self._context.storage_state(path=SESSION_FILE)
 
         self.logged_in = True
@@ -82,31 +83,7 @@ class BboPhoenixSession:
         page.locator("#username").fill(username)
         page.locator("#password").fill(password)
         page.locator("#password").press("Enter")
-
-    def get_current_sessions(self) -> list[str]:
-        self._login()
-        page = self.page
-        page.locator('mat-icon[data-mat-icon-name="director"]').click()
-        page.get_by_role("tab", name="Pending Tournaments").click()
-        return self._get_session_dates()
-
-    def _get_session_dates(self, timeout: int = 15000) -> list[datetime]:
-        """Return the start of every 'Starts: ...' entry as a datetime."""
-        page = self.page
-        page.wait_for_function(
-            "(pattern) => new RegExp(pattern).test(document.body.innerText)",
-            arg=SESSION_PATTERN.pattern,
-            timeout=timeout,
-        )
-        text = page.locator("body").inner_text()
-        found = []
-        for match in SESSION_PATTERN.finditer(text):
-            try:
-                when = datetime.strptime(match.group(2), "%d %B %Y").date()
-            except ValueError:
-                continue
-            found.append(Session(number=match.group(1), date=when))
-        return found
+        logger.info("Credentials entered")
 
     def _accept_cookies(self, page: Page) -> None:
         """Click the cookie consent button if one appears."""
@@ -114,6 +91,7 @@ class BboPhoenixSession:
         try:
             button.click(timeout=COOKIE_TIMEOUT)
         except PlaywrightTimeoutError:
+            logger.debug("No cookie banner found")
             pass  # No banner this time
 
     def close(self) -> None:

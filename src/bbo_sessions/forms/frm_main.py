@@ -134,7 +134,7 @@ class AppFrame:
     def _get_existing_sessions(self) -> list[datetime]:
         """Get the existing sessions."""
         if GET_FROM_BBO:
-            current_sessions = self.session.get_current_sessions()
+            current_sessions = self.session.get_current_tournaments()
             sessions = []
             for session in current_sessions:
                 if session.date >= datetime.now().date():
