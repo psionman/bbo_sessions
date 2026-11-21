@@ -3,6 +3,6 @@ from datetime import date
 
 
 @dataclass
-class Session:
+class Tournament:
     number: str
     date: date

@@ -14,7 +14,7 @@ from bbo_sessions.buttons import ButtonFrame, IconButton
 from bbo_sessions.config import config
 from bbo_sessions.constants import APP_TITLE
 from bbo_sessions.main_menu import MainMenu
-from bbo_sessions.models import Session
+from bbo_sessions.models import Tournament
 from bbo_sessions.state import state
 from bbo_sessions.text import Text
 
@@ -34,10 +34,10 @@ class AppFrame:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.session: BboSession | None = BboSession()
-        self.existing_sessions = (  # <class Session>
+        self.existing_sessions = (  # <class Tournament>
             self._get_existing_sessions()
         )
-        self.new_sessions = (  # <class Session>
+        self.new_sessions = (  # <class Tournament>
             self._get_new_sessions()
         )
 
@@ -156,7 +156,7 @@ class AppFrame:
         for session in self.existing_sessions:
             new_start = session.date + timedelta(days=7)
             if session.date <= cutoff and new_start not in existing_dates:
-                new_sessions.append(Session(session.number, new_start))
+                new_sessions.append(Tournament(session.number, new_start))
                 existing_dates.add(new_start)  # avoid duplicates
 
         return new_sessions

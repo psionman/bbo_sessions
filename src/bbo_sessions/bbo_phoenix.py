@@ -70,6 +70,7 @@ class BboPhoenixSession:
             raise WebSessionError(f"Could not reach BBO: {error}") from error
 
         self._accept_cookies(page)
+        logger.info("About to enter credentials")
 
         self._enter_credentials(BBO_USERNAME, BBO_PASSWORD)
         page.wait_for_url(lambda url: "/auth/login" not in url)

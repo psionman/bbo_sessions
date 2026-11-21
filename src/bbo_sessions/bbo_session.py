@@ -6,10 +6,16 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from bbo_sessions import logger
 from bbo_sessions.bbo_phoenix import BboPhoenixSession
 from bbo_sessions.config import config
-from bbo_sessions.models import Session
+from bbo_sessions.models import Tournament
 
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
 EXTRA_MINUTES = 2
+
+DELETE_DATES = [
+    datetime(2026, 11, 30).date(),
+    datetime(2026, 12, 2).date(),
+    datetime(2026, 12, 3).date(),
+]
 
 
 class BboSession(BboPhoenixSession):
@@ -51,7 +57,7 @@ class BboSession(BboPhoenixSession):
             page.locator("tournament-properties-popup").get_by_role(
                 "button", name="Close"
             ).click()
-            print(f"Modified tournament {when}")
+            logger.info(f"Modified tournament {when}")
 
         self.close()
 
@@ -65,7 +71,6 @@ class BboSession(BboPhoenixSession):
     def _get_tournament_dates(self, timeout: int = 15000) -> list[datetime]:
         """Return the start of every 'Starts: ...' entry as a datetime."""
         page = self.page
-        logger.info("Getting tournament dates")
         page.wait_for_function(
             "(pattern) => new RegExp(pattern).test(document.body.innerText)",
             arg=SESSION_PATTERN.pattern,
@@ -78,14 +83,14 @@ class BboSession(BboPhoenixSession):
                 when = datetime.strptime(match.group(2), "%d %B %Y").date()
             except ValueError:
                 continue
-            found.append(Session(number=match.group(1), date=when))
+            found.append(Tournament(number=match.group(1), date=when))
         logger.info(f"Found {len(found)} tournament dates")
         return found
 
     def create_new_tournaments(
         self,
-        existing_tournaments: list[Session],
-        new_tournaments: list[Session],
+        existing_tournaments: list[Tournament],
+        new_tournaments: list[Tournament],
     ) -> None:
         """Create new tournaments for the given tournament dates."""
         try:
@@ -100,85 +105,39 @@ class BboSession(BboPhoenixSession):
             self.close()
         return "OK"
 
-    def _create_tournament(
-        self, existing_tournament_date, new_tournament
-    ) -> None:
+    def _create_tournament(self, existing_tournament, new_tournament) -> None:
         page = self.page
 
         existing_tournament_text = (
-            f"{existing_tournament_date.number} Phoenix Bridge Club "
-            f"{existing_tournament_date.date.strftime('%d')}"
+            f"{existing_tournament.number} Phoenix Bridge Club "
+            f"{existing_tournament.date.strftime('%d')}"
         )
-        logger.info(
-            "Creating tournament", extra={"Tournament": new_tournament.date}
-        )
-        self.click_on_tournament(existing_tournament_text)
 
-        # =================================================
-        # Click the Edit Tournament button
-        # =================================================
-        page.get_by_text("Edit Tournament").click()
+        self._click_on_tournament(existing_tournament_text)
+        page.get_by_text("Edit Tournament").click(timeout=500)
+        page.get_by_role("button", name="Copy tournament").click(timeout=5000)
 
-        page.wait_for_timeout(500)
-        # -------------------------------------------------
-        # Click the Copy tournament button
-        # -------------------------------------------------
-        copy_btn = page.get_by_role("button", name="Copy tournament")
-        copy_btn.click(timeout=5000)  # Waits for it to be visible and enabled
-
-        page.wait_for_timeout(500)
-        # -------------------------------------------------
-        # Fill the title with the copied title
-        # -------------------------------------------------
-        title_field = page.get_by_role("textbox", name="Title")
-        title_field.wait_for(state="visible", timeout=5000)
-
-        source_title = title_field.input_value().strip()
-        updated_title = self._update_title(page, source_title, source_title)
-        print(f"updated_title: {updated_title}")
-
-        title_field.fill(updated_title)
-
-        # Date and time
-        days, hours, minutes = self._get_time(new_tournament.date)
-
-        day_btn = page.get_by_role("spinbutton", name="D")
-        hour_btn = page.get_by_role("spinbutton", name="H")
-        minute_btn = page.get_by_role("spinbutton", name="M")
-
-        day_btn.fill(str(days))
-        hour_btn.fill(str(hours))
-        minute_btn.fill(str(minutes + EXTRA_MINUTES))
-        print(
-            f"Days: {days}, Hours: {hours}, Minutes: {minutes + EXTRA_MINUTES}"
-        )
+        self._update_title()
+        self._update_date(new_tournament)
 
         # Modify  the tournament
         modify_btn = page.get_by_role("button", name="Modify tournament")
         modify_btn.wait_for(state="visible", timeout=5000)
-        modify_btn.click()
+        modify_btn.click(timeout=500)
+
+        # Close the updated tournament properties popup
+        popup = page.locator("tournament-properties-popup")
+        popup.get_by_role("button", name="Close").click()
+
         logger.info(
             "Tournament created",
             extra={"Created for": new_tournament.date.strftime("%Y-%m-%d")},
         )
-        page.pause()
 
-        # Close the updated tournament properties popup
-        page.wait_for_timeout(500)
-        popup = page.locator("tournament-properties-popup")
-        popup.get_by_role("button", name="Close").click()
-        logger.info(
-            "Created tournament", extra={"Session": new_tournament.date}
-        )
-
-    def click_on_tournament(self, tournament_text: str):
-        # =================================================
-        # Click the tournament link
-        # =================================================
+    def _click_on_tournament(self, tournament_text: str) -> None:
         page = self.page
         link = page.get_by_text(tournament_text)
         count = link.count()
-        logger.info("Matches for the tournament text: %d", count)
 
         if count == 0:
             # Show what is on the page that looks similar
@@ -191,7 +150,9 @@ class BboSession(BboPhoenixSession):
                 [t.strip()[:80] for t in similar.all_inner_texts()][:10],
             )
             page.screenshot(path="session_link.png")
-            raise RuntimeError(f"Session link not found: {tournament_text!r}")
+            raise RuntimeError(
+                f"Tournament link not found: {tournament_text!r}"
+            )
 
         try:
             link.first.click(timeout=10000)
@@ -199,6 +160,30 @@ class BboSession(BboPhoenixSession):
             logger.error("Click failed: %s", str(error)[:600])
             page.screenshot(path="session_link.png")
             raise
+
+    def _update_title(self) -> None:
+        page = self.page
+        # page.pause()
+        title_field = page.get_by_role("textbox", name="Title")
+        title_field.wait_for(state="visible", timeout=5000)
+        page.wait_for_timeout(1000)  # Essential to get number in title
+
+        title = title_field.input_value().strip()
+        updated_title = self._get_new_title(title)
+        title_field.fill(updated_title)
+
+    def _update_date(self, new_tournament: Tournament) -> None:
+        # Date and time
+        page = self.page
+        days, hours, minutes = self._get_time(new_tournament.date)
+
+        day_btn = page.get_by_role("spinbutton", name="D")
+        hour_btn = page.get_by_role("spinbutton", name="H")
+        minute_btn = page.get_by_role("spinbutton", name="M")
+
+        day_btn.fill(str(days))
+        hour_btn.fill(str(hours))
+        minute_btn.fill(str(minutes + EXTRA_MINUTES))
 
     def _get_time(self, tournament_date) -> tuple[str]:
         days = (tournament_date - datetime.now().date()).days
@@ -210,22 +195,10 @@ class BboSession(BboPhoenixSession):
         total_minutes = int(delta.total_seconds() // 60)
         return days, *divmod(total_minutes, 60)
 
-    def _update_title(self, page, source_title: str, new_title: str) -> str:
+    def _get_new_title(self, title: str) -> str:
         """Update the title field with the new title."""
-        # Extract the date from the captured title
-        date_match = re.search(r"\d{1,2} \w+ \d{4}", source_title)
-        if not date_match:
-            raise ValueError("Date not found in captured title")
-
-        captured_date = datetime.strptime(date_match.group(), "%d %B %Y")
-        new_date = captured_date + timedelta(days=7)
-
-        # Extract the club number from the new title
-        number_match = re.match(r"#(\d+)", new_title)
-        if not number_match:
-            raise ValueError("Tournament number not found in new title")
-
-        tournament_number = number_match.group(1)
+        new_date = self._get_new_date(title)
+        tournament_number = self._get_tournament_number(title)
 
         # Build the result
         return (
@@ -233,25 +206,38 @@ class BboSession(BboPhoenixSession):
             f"{new_date.strftime('%d %B %Y')}"
         )
 
+    def _get_new_date(self, title: str) -> datetime:
+        # Extract the date from the captured title
+        date_match = re.search(r"\d{1,2} \w+ \d{4}", title)
+        if not date_match:
+            logger.error("Date not found in captured title: %s", title)
+            raise ValueError("Date not found in captured title")
+
+        captured_date = datetime.strptime(date_match.group(), "%d %B %Y")
+        return captured_date + timedelta(days=7)
+
+    def _get_tournament_number(self, title: str) -> str:
+        """Extract the tournament number from the title."""
+        number_match = re.match(r"#(\d+)", title)
+        if not number_match:
+            logger.error("Tournament number not found in new title: %s", title)
+            raise ValueError("Tournament number not found in new title")
+        return number_match.group(1)
+
     def cron_create_tournaments(self) -> None:
         """Create tournaments for the next week."""
         self.login()
         existing_tournaments = self.get_current_tournaments()
         new_tournaments = get_new_tournaments(existing_tournaments)
-        self.create_new_tournaments(existing_tournaments, new_tournaments)
+        return self.create_new_tournaments(
+            existing_tournaments, new_tournaments
+        )
 
     def delete_tournaments(self):
-        """Delete tournaments."""
-        print("Deleting tournaments...")
-        DELETE_DATES = [
-            datetime(2026, 11, 30).date(),
-            datetime(2026, 12, 2).date(),
-            datetime(2026, 12, 3).date(),
-        ]
-
+        """Delete tournaments for dates in DELETE_DATES."""
         self.login()
         existing_tournaments = self.get_current_tournaments()
-        print(f"Existing tournaments: {existing_tournaments}")
+
         tournaments_to_delete = [
             tournament
             for tournament in existing_tournaments
@@ -259,30 +245,25 @@ class BboSession(BboPhoenixSession):
         ]
 
         page = self.page
-        # page.locator('mat-icon[data-mat-icon-name="director"]').click()
-        # page.get_by_role("tab", name="Pending Tournaments").click()
-
-        print(tournaments_to_delete)
 
         for tournament in tournaments_to_delete:
-            print(f"Deleting tournament {tournament.date}")
             existing_tournament_text = (
                 f"{tournament.number} Phoenix Bridge Club "
                 f"{tournament.date.strftime('%d')}"
             )
-            self.click_on_tournament(existing_tournament_text)
-
-            # =================================================
-            # Click the Destroy Tournament button
-            # =================================================
+            self._click_on_tournament(existing_tournament_text)
             page.get_by_text("Destroy Tournament").click(timeout=500)
             page.get_by_role(
                 "checkbox", name="I confirm I want to cancel #"
             ).check()
             page.get_by_role("button", name="Destroy Tournament").click()
+            logger.info(f"Deleted tournament {tournament.date}")
+        return "OK"
 
 
-def get_new_tournaments(existing_tournaments: list[Session]) -> list[datetime]:
+def get_new_tournaments(
+    existing_tournaments: list[Tournament],
+) -> list[datetime]:
     """Get the new tournaments."""
     cutoff = (datetime.today() + timedelta(days=14)).date()
     existing_dates = {tournament.date for tournament in existing_tournaments}
@@ -291,7 +272,7 @@ def get_new_tournaments(existing_tournaments: list[Session]) -> list[datetime]:
     for tournament in existing_tournaments:
         new_start = tournament.date + timedelta(days=7)
         if tournament.date <= cutoff and new_start not in existing_dates:
-            new_tournaments.append(Session(tournament.number, new_start))
+            new_tournaments.append(Tournament(tournament.number, new_start))
             existing_dates.add(new_start)  # avoid duplicates
 
     return new_tournaments

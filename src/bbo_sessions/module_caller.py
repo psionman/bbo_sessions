@@ -23,10 +23,10 @@ class ModuleCaller(ModuleCallerBase):
 
     def _cron(self) -> None:
         print("Calling... cron")
-        BboSession(False).cron_create_tournaments()
-        pass
+        result = BboSession(True).cron_create_tournaments()
+        print(f"Cron result: {result}")
 
     def delete_tournaments(self) -> None:
         print("Calling... delete tournaments")
-        BboSession(False).delete_tournaments()
-        pass
+        result = BboSession(True).delete_tournaments()
+        print(f"Delete result: {result}")
