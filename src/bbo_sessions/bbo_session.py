@@ -234,29 +234,35 @@ class BboSession(BboPhoenixSession):
     def delete_tournaments(self):
         """Delete tournaments for dates in DELETE_DATES."""
         self.login()
-        existing_tournaments = self.get_current_tournaments()
 
-        tournaments_to_delete = [
+        tournaments_to_delete = self._get_tournaments_to_delete()
+        for tournament in tournaments_to_delete:
+            self._delete_tournament(tournament)
+        return "OK"
+
+    def _get_tournaments_to_delete(self) -> list[Tournament]:
+        """Get the tournaments to delete."""
+        existing_tournaments = self.get_current_tournaments()
+        return [
             tournament
             for tournament in existing_tournaments
             if tournament.date in DELETE_DATES
         ]
 
+    def _delete_tournament(self, tournament: Tournament) -> None:
+        """Delete a single tournament."""
         page = self.page
-
-        for tournament in tournaments_to_delete:
-            existing_tournament_text = (
-                f"{tournament.number} Phoenix Bridge Club "
-                f"{tournament.date.strftime('%d')}"
-            )
-            self._click_on_tournament(existing_tournament_text)
-            page.get_by_text("Destroy Tournament").click(timeout=500)
-            page.get_by_role(
-                "checkbox", name="I confirm I want to cancel #"
-            ).check()
-            page.get_by_role("button", name="Destroy Tournament").click()
-            logger.info(f"Deleted tournament {tournament.date}")
-        return "OK"
+        existing_tournament_text = (
+            f"{tournament.number} Phoenix Bridge Club "
+            f"{tournament.date.strftime('%d')}"
+        )
+        self._click_on_tournament(existing_tournament_text)
+        page.get_by_text("Destroy Tournament").click(timeout=500)
+        page.get_by_role(
+            "checkbox", name="I confirm I want to cancel #"
+        ).check()
+        page.get_by_role("button", name="Destroy Tournament").click()
+        logger.info(f"Deleted tournament {tournament.date}")
 
 
 def get_new_tournaments(
