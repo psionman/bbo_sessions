@@ -6,6 +6,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from bbo_tournaments import logger
 from bbo_tournaments.bbo_phoenix import BboPhoenixSession
 from bbo_tournaments.config import config
+from bbo_tournaments.emails import send_emails
 from bbo_tournaments.models import Tournament
 
 SESSION_PATTERN = re.compile(r"#(\d+)\s+.*?\b(\d{1,2} [A-Za-z]+ \d{4})\b")
@@ -138,7 +139,7 @@ class BboSession(BboPhoenixSession):
         page = self.page
         link = page.get_by_text(tournament_text)
         count = link.count()
-
+        page.pause()
         if count == 0:
             # Show what is on the page that looks similar
             first_word = str(tournament_text).split()[0]
@@ -227,9 +228,27 @@ class BboSession(BboPhoenixSession):
         self.login()
         existing_tournaments = self.get_current_tournaments()
         new_tournaments = get_new_tournaments(existing_tournaments)
-        return self.create_new_tournaments(
+        dates = [
+            tournament.date.strftime("%Y-%m-%d")
+            for tournament in new_tournaments
+        ]
+        response = self.create_new_tournaments(
             existing_tournaments, new_tournaments
         )
+        if response != "OK":
+            logger.error("Failed to create tournaments.")
+            send_emails(
+                ["jeffwatkins2000@gmail.com"],
+                "Tournaments Creation failed !!!!!!!",
+                "Tournaments have not been created",
+            )
+            return response
+        send_emails(
+            ["jeffwatkins2000@gmail.com"],
+            "Tournaments Created",
+            f"Tournaments have been created for dates: {', '.join(dates)}",
+        )
+        return response
 
     def delete_tournaments(self):
         """Delete tournaments for dates in DELETE_DATES."""
@@ -238,6 +257,11 @@ class BboSession(BboPhoenixSession):
         tournaments_to_delete = self._get_tournaments_to_delete()
         for tournament in tournaments_to_delete:
             self._delete_tournament(tournament)
+        send_emails(
+            ["jeffwatkins2000@gmail.com"],
+            "Tournament Deleted",
+            "Tournaments have been deleted.",
+        )
         return "OK"
 
     def _get_tournaments_to_delete(self) -> list[Tournament]:

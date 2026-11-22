@@ -12,7 +12,9 @@ class ModuleCaller(ModuleCallerBase):
         self.modules = {
             "config": (self._config, None),
             "cron": (self._cron, None),
-            "delete_tournaments": (self.delete_tournaments, None),
+            # "delete_tournaments": (self.delete_tournaments, None),
+            # "create_tournaments": (self._create_tournaments, None),
+            "email": (self.send_email, None),
         }
         super().__init__(root, parsed_args)
 
@@ -30,3 +32,14 @@ class ModuleCaller(ModuleCallerBase):
         print("Calling... delete tournaments")
         result = BboSession(True).delete_tournaments()
         print(f"Delete result: {result}")
+
+    def _create_tournaments(self) -> None:
+        print("Calling... create tournaments")
+        BboSession(True).cron_create_tournaments()
+
+    def send_email(self) -> None:
+        print("Calling... send email")
+        from bbo_tournaments.emails import send
+
+        response = send()
+        print(f"Email result: {response}")

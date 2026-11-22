@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Locator, Page, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from bbo_tournaments import logger
@@ -26,6 +26,8 @@ COOKIE_TIMEOUT = 1000
 LOGIN_TIMEOUT = 15  # Seconds to wait for BBO to accept the login
 SCREEN_SHOTS = "screenshots"
 FAILURE_SHOT = Path(SCREEN_SHOTS, "login_failed.png")
+
+DEBUG = False
 
 
 class WebSessionError(Exception):
@@ -119,48 +121,16 @@ class BboPhoenixSession:
 
     def _enter_credentials(self, username: str, password: str) -> None:
         page = self.page
-        # page.on(
-        #     "request",
-        #     lambda r: (
-        #         logger.info("REQ %s %s", r.method, r.url[:100])
-        #         if "auth" in r.url or r.method == "POST"
-        #         else None
-        #     ),
-        # )
-        # page.on(
-        #     "response",
-        #     lambda r: (
-        #         logger.info("RES %s %s", r.status, r.url[:100])
-        #         if "auth" in r.url or r.request.method == "POST"
-        #         else None
-        #     ),
-        # )
-        # page.on(
-        #     "console",
-        #     lambda m: (
-        #         logger.info("CONSOLE %s %s", m.type, m.text[:200])
-        #         if m.type in ("error", "warning")
-        #         else None
-        #     ),
-        # )
+        self._debug_login_page(page)
 
         user_box = page.locator("#username")
         password_box = page.locator("#password")
         user_box.fill(username)
         password_box.fill(password)
-        # logger.info(
-        #     "lengths: user=%d password=%d | user maxlength=%s",
-        #     len(user_box.input_value()),
-        #     len(password_box.input_value()),
-        #     user_box.get_attribute("maxlength"),
-        # )
+        self._debug_password_entry(user_box, password_box)
 
         sign_in = page.get_by_role("button", name="Sign in", exact=True)
-        # logger.info(
-        #     "button count=%d enabled=%s",
-        #     sign_in.count(),
-        #     sign_in.is_enabled() if sign_in.count() else None,
-        # )
+        self._debug_sign_in_button(sign_in)
         sign_in.click(timeout=5000)
         page.wait_for_timeout(3000)
         # logger.info("url after click: %s", page.url)
@@ -174,6 +144,58 @@ class BboPhoenixSession:
         except PlaywrightTimeoutError:
             logger.debug("No cookie banner found")
             pass  # No banner this time
+
+    def _debug_login_page(self, page: Page) -> None:
+        """Take a screenshot of the login page for debugging."""
+        if not DEBUG:
+            return
+        page.on(
+            "request",
+            lambda r: (
+                logger.info("REQ %s %s", r.method, r.url[:100])
+                if "auth" in r.url or r.method == "POST"
+                else None
+            ),
+        )
+        page.on(
+            "response",
+            lambda r: (
+                logger.info("RES %s %s", r.status, r.url[:100])
+                if "auth" in r.url or r.request.method == "POST"
+                else None
+            ),
+        )
+        page.on(
+            "console",
+            lambda m: (
+                logger.info("CONSOLE %s %s", m.type, m.text[:200])
+                if m.type in ("error", "warning")
+                else None
+            ),
+        )
+
+    def _debug_password_entry(
+        self, user_box: Locator, password_box: Locator
+    ) -> None:
+        """Take a screenshot of the password entry page for debugging."""
+        if not DEBUG:
+            return
+        logger.info(
+            "lengths: user=%d password=%d | user maxlength=%s",
+            len(user_box.input_value()),
+            len(password_box.input_value()),
+            user_box.get_attribute("maxlength"),
+        )
+
+    def _debug_sign_in_button(self, sign_in: Locator) -> None:
+        """Take a screenshot of the sign in button for debugging."""
+        if not DEBUG:
+            return
+        logger.info(
+            "button count=%d enabled=%s",
+            sign_in.count(),
+            sign_in.is_enabled() if sign_in.count() else None,
+        )
 
     def close(self) -> None:
         self._browser.close()

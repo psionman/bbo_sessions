@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "bbo-sessions"
+name = "bbo-tournaments"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
